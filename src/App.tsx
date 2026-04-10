@@ -118,6 +118,7 @@ function buildMessage(args: {
   expressionCount: number;
   background: BackgroundKey;
   colorPreference: string;
+  deliveryDate: string;
   portfolioPermission: string;
   commercial: boolean;
   rush: boolean;
@@ -137,6 +138,7 @@ function buildMessage(args: {
     `・表情差分：${expressionLabel(args.expressionCount)}`,
     `・背景：${labelForBackground(args.background)}`,
     `・お好みの配色：${args.colorPreference}`,
+    args.deliveryDate ? `・納期：${args.deliveryDate}` : null,
     args.portfolioPermission ? `・実績公開の可否：${args.portfolioPermission}` : null,
     args.commercial ? "・商用利用あり" : null,
     args.rush ? "・早期納品あり" : null,
@@ -240,6 +242,7 @@ export default function Tool() {
   const [range, setRange] = useState<RangeKey>("bustUp");
   const [background, setBackground] = useState<BackgroundKey>("simple");
   const [colorPreference, setColorPreference] = useState("鮮やかな色がすき");
+  const [deliveryDate, setDeliveryDate] = useState("");
   const [portfolioPermission, setPortfolioPermission] = useState("");
   const [peopleCount, setPeopleCount] = useState(1);
   const [expressionCount, setExpressionCount] = useState(0);
@@ -269,6 +272,7 @@ export default function Tool() {
       expressionCount,
       background,
       colorPreference,
+      deliveryDate,
       portfolioPermission,
       commercial,
       rush,
@@ -360,6 +364,12 @@ export default function Tool() {
         </div>
 
         <TextInput
+          placeholder="納期（例：◯月◯日頃）"
+          value={deliveryDate}
+          onChange={(e) => setDeliveryDate(e.target.value)}
+        />
+
+        <TextInput
           placeholder="実績公開の可否（可能の場合いつから可能か）"
           value={portfolioPermission}
           onChange={(e) => setPortfolioPermission(e.target.value)}
@@ -399,7 +409,8 @@ export default function Tool() {
             見積もり結果の文章をコピーできます。<br />
             DMでのご相談の際にお役立てください！
           </div>
-          <div style={styles.xLinkWrap}>     <span style={styles.xLabel}>X(旧Twitter)：</span>
+          <div style={styles.xLinkWrap}>
+            <span style={styles.xLabel}>X(旧Twitter)：</span>
             <a
               href="https://x.com/natsunohiori"
               target="_blank"
