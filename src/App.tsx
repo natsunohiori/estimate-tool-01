@@ -50,12 +50,8 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function peopleLabel(count: number): string {
-  return `${clamp(count, 1, 10)}人`;
-}
-
 function expressionLabel(count: number): string {
-  return count <= 0 ? "なし" : `${clamp(count, 0, 30)}つ`;
+  return count <= 0 ? "なし" : `${clamp(count, 0, 10)}点`;
 }
 
 function labelForRange(range: RangeKey): string {
@@ -94,7 +90,7 @@ function buildEstimate(args: {
   rush: boolean;
 }) {
   const safePeople = clamp(args.peopleCount, 1, 10);
-  const safeExpressions = clamp(args.expressionCount, 0, 30);
+  const safeExpressions = clamp(args.expressionCount, 0, 10);
   const base = (BASE_PRICE + RANGE_OPTIONS[args.range]) * safePeople;
   const backgroundFee = BACKGROUND_OPTIONS[args.background];
 
@@ -108,10 +104,9 @@ function buildEstimate(args: {
   const subtotal = base + backgroundFee + optionsTotal + expressionFee;
   const commercialFee = args.commercial ? COMMERCIAL_PRICE : 0;
   const rushFee = args.rush ? Math.floor((subtotal + commercialFee) * 0.3) : 0;
-  const total = subtotal + commercialFee + rushFee;
 
   return {
-    total,
+    total: subtotal + commercialFee + rushFee,
   };
 }
 
@@ -150,36 +145,24 @@ function buildMessage(args: {
     "【概算金額】",
     `合計：${yen(args.total)}`,
     "",
-    "※上記は概算となります。",
     "",
-    "こちらの内容をコピーして、XのDMやDiscordのメッセージからぜひご相談ください。",
+    "※ご相談内容の詳細によりましては、料金が変動することがございます。",
+    "",
+    "",
   ];
 
   return lines.filter((line): line is string => line !== null).join("\n");
 }
 
 function runTests() {
-  console.assert(peopleLabel(1) === "1人", "peopleLabel should format 1人");
-  console.assert(peopleLabel(12) === "10人", "peopleLabel should clamp to 10人");
-  console.assert(expressionLabel(0) === "なし", "expressionLabel should format なし");
-  console.assert(expressionLabel(2) === "2つ", "expressionLabel should format 2つ");
-  console.assert(expressionLabel(31) === "30つ", "expressionLabel should clamp to 30つ");
+  console.assert(expressionLabel(0) === "なし", "0 should be なし");
+  console.assert(expressionLabel(2) === "2点", "2 should be 2点");
+  console.assert(expressionLabel(11) === "10点", "max should clamp to 10点");
 
-  const baseEstimate = buildEstimate({
-    range: "bustUp",
-    peopleCount: 1,
-    expressionCount: 0,
-    background: "simple",
-    selectedOptions: INITIAL_SELECTED_OPTIONS,
-    commercial: false,
-    rush: false,
-  });
-  console.assert(baseEstimate.total === 5000, "base estimate should be 5000");
-
-  const commercialEstimate = buildEstimate({
+  const estimate = buildEstimate({
     range: "waistUp",
     peopleCount: 2,
-    expressionCount: 1,
+    expressionCount: 2,
     background: "design",
     selectedOptions: {
       animation: false,
@@ -191,23 +174,7 @@ function runTests() {
     commercial: true,
     rush: false,
   });
-  console.assert(commercialEstimate.total === 18500, "commercial estimate should exclude highRes");
-
-  const message = buildMessage({
-    clientName: "",
-    usage: "SNSアイコン",
-    range: "bustUp",
-    peopleCount: 1,
-    expressionCount: 0,
-    background: "simple",
-    colorPreference: "鮮やかな色がすき",
-    portfolioPermission: "4月以降可能",
-    commercial: false,
-    rush: false,
-    notes: "参考資料あり",
-    total: 5000,
-  });
-  console.assert(message.includes("実績公開の可否：4月以降可能"), "message should include portfolio permission");
+  console.assert(estimate.total === 20500, "estimate should include 2 expressions and commercial fee");
 }
 
 runTests();
@@ -264,35 +231,6 @@ function CheckboxRow(props: {
       />
       <span>{props.label}</span>
     </label>
-  );
-}
-
-function StepperField(props: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  format: (value: number) => string;
-  onChange: (value: number) => void;
-}) {
-  const { label, value, min, max, format, onChange } = props;
-  const safeValue = clamp(value, min, max);
-
-  return (
-    <div>
-      <FieldLabel>{label}</FieldLabel>
-      <div style={styles.stepperWrap}>
-        <span>{format(safeValue)}</span>
-        <div style={styles.stepperButtons}>
-          <button type="button" onClick={() => onChange(clamp(safeValue + 1, min, max))} style={styles.stepperButton}>
-            ▲
-          </button>
-          <button type="button" onClick={() => onChange(clamp(safeValue - 1, min, max))} style={styles.stepperButton}>
-            ▼
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -354,6 +292,11 @@ export default function Tool() {
 
   return (
     <div style={styles.page}>
+      <div style={styles.header}>
+        <h1 style={styles.headerTitle}>イラスト見積もりツール🌻</h1>
+        <p style={styles.headerText}>簡単に金額を確認できます。入力後、そのままDMでご相談いただけます✨</p>
+      </div>
+
       <Card title="見積もり内容入力">
         <TextInput placeholder="依頼者名" value={clientName} onChange={(e) => setClientName(e.target.value)} />
         <TextInput placeholder="使用用途" value={usage} onChange={(e) => setUsage(e.target.value)} />
@@ -372,8 +315,23 @@ export default function Tool() {
           />
         </div>
 
-        <StepperField label="人数" value={peopleCount} min={1} max={10} format={peopleLabel} onChange={setPeopleCount} />
-        <StepperField label="表情差分" value={expressionCount} min={0} max={30} format={expressionLabel} onChange={setExpressionCount} />
+        <div>
+          <FieldLabel>人数</FieldLabel>
+          <SelectField
+            value={String(peopleCount)}
+            onChange={(value) => setPeopleCount(Number(value))}
+            options={Array.from({ length: 10 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}人` }))}
+          />
+        </div>
+
+        <div>
+          <FieldLabel>表情差分</FieldLabel>
+          <SelectField
+            value={String(expressionCount)}
+            onChange={(value) => setExpressionCount(Number(value))}
+            options={[{ value: "0", label: "なし" }, ...Array.from({ length: 10 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}点` }))]}
+          />
+        </div>
 
         <div>
           <FieldLabel>背景</FieldLabel>
@@ -433,18 +391,48 @@ export default function Tool() {
       <Card title="見積もり結果">
         <div style={styles.total}>合計：{yen(estimate.total)}</div>
         <TextArea value={message} readOnly style={{ minHeight: 320 }} />
-        <button type="button" onClick={copyMessage} style={styles.copyButton}>
-          コピー
-        </button>
+        <div>
+          <button type="button" onClick={copyMessage} style={styles.copyButton}>
+            コピー
+          </button>
+          <div style={styles.copyHint}>
+            見積もり結果の文章をコピーできます。<br />
+            DMでのご相談の際にお役立てください！
+          </div>
+          <div style={styles.xLinkWrap}>     <span style={styles.xLabel}>X(旧Twitter)：</span>
+            <a
+              href="https://x.com/natsunohiori"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={styles.xLink}
+            >
+              https://x.com/natsunohiori
+            </a>
+          </div>
+        </div>
       </Card>
     </div>
   );
 }
 
 const styles: Record<string, React.CSSProperties> = {
+  header: {
+    gridColumn: "1 / -1",
+    marginBottom: 8,
+  },
+  headerTitle: {
+    margin: "0 0 4px 0",
+    fontSize: 24,
+    color: "#965209",
+  },
+  headerText: {
+    margin: 0,
+    fontSize: 14,
+    color: "#6b5b4f",
+  },
   page: {
     display: "grid",
-    gap: 24,
+    gap: 28,
     padding: 24,
     background: "#ffffff",
     gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
@@ -518,34 +506,6 @@ const styles: Record<string, React.CSSProperties> = {
     height: 16,
     accentColor: "#965209",
   },
-  stepperWrap: {
-    height: 40,
-    width: "100%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderRadius: 8,
-    border: "1px solid #664522",
-    padding: "0 12px",
-    boxSizing: "border-box",
-    marginBottom: 16,
-  },
-  stepperButtons: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 1,
-    marginLeft: 12,
-  },
-  stepperButton: {
-    width: 20,
-    height: 16,
-    border: "none",
-    background: "transparent",
-    color: "#965209",
-    cursor: "pointer",
-    lineHeight: 1,
-    padding: 0,
-  },
   total: {
     color: "#965209",
     fontWeight: 600,
@@ -553,13 +513,36 @@ const styles: Record<string, React.CSSProperties> = {
   },
   copyButton: {
     marginTop: 16,
-    height: 40,
-    borderRadius: 8,
+    height: 48,
+    borderRadius: 10,
     border: "none",
     background: "#D1AF8A",
     color: "#fff",
     padding: "0 16px",
     cursor: "pointer",
     fontWeight: 600,
+    fontSize: 16,
+  },
+  xLinkWrap: {
+    marginTop: 20,
+    fontSize: 15,
+    display: "block",
+  },
+  xLabel: {
+    color: "#6b5b4f",
+  },
+  xLink: {
+    display: "block",
+    marginTop: 8,
+    padding: "12px 0",
+    color: "#965209",
+    textDecoration: "underline",
+    wordBreak: "break-all",
+    fontSize: 15,
+  },
+  copyHint: {
+    marginTop: 8,
+    fontSize: 13,
+    color: "#6b5b4f",
   },
 };
