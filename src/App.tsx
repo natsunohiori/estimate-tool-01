@@ -129,11 +129,11 @@ function buildMessage(args: {
   const safePeople = clamp(args.peopleCount, 1, 10);
   const safeExpressions = clamp(args.expressionCount, 0, 10);
 
-  const selectedOptionLabels = OPTIONS
+  const selectedOptionLabels: string[] = OPTIONS
     .filter((option) => args.selectedOptions[option.key])
     .map((option) => option.label);
 
-  const includedItems = [...selectedOptionLabels];
+  const includedItems: string[] = [...selectedOptionLabels];
 
   if (args.commercial) {
     includedItems.push("商用利用");
