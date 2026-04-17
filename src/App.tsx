@@ -120,37 +120,58 @@ function buildMessage(args: {
   colorPreference: string;
   deliveryDate: string;
   portfolioPermission: string;
+  selectedOptions: SelectedOptions;
   commercial: boolean;
   rush: boolean;
   notes: string;
   total: number;
 }): string {
+  const safePeople = clamp(args.peopleCount, 1, 10);
+  const safeExpressions = clamp(args.expressionCount, 0, 10);
+
+  const selectedOptionLabels = OPTIONS
+    .filter((option) => args.selectedOptions[option.key])
+    .map((option) => option.label);
+
+  const includedItems = [...selectedOptionLabels];
+
+  if (args.commercial) {
+    includedItems.push("商用利用");
+  }
+
+  if (args.rush) {
+    includedItems.push("早期納品");
+  }
+
+  const includedOptionLines =
+    includedItems.length > 0
+      ? includedItems.map((item) => `・${item}`)
+      : ["・なし"];
+
   const lines: Array<string | null> = [
-    args.clientName ? `${args.clientName}様` : "",
+    args.clientName ? `${args.clientName}様` : null,
     args.clientName ? "" : null,
     "この度はご相談いただきありがとうございます。",
-    "ご依頼内容をもとに、概算のお見積もりをご案内いたします。",
+    "いただいた内容をもとに、概算のお見積もりをご案内いたします。",
     "",
     "【ご依頼内容】",
     `・使用用途：${args.usage || "未入力"}`,
     `・描写範囲：${labelForRange(args.range)}`,
-    `・人数：${clamp(args.peopleCount, 1, 10)}名`,
-    `・表情差分：${expressionLabel(args.expressionCount)}`,
+    `・人数：${safePeople}名`,
     `・背景：${labelForBackground(args.background)}`,
-    `・お好みの配色：${args.colorPreference}`,
+    `・表情差分：${expressionLabel(safeExpressions)}`,
+    "",
+    "【追加項目】",
+    ...includedOptionLines,
+    `・お好みの配色：${args.colorPreference || "未入力"}`,
     args.deliveryDate ? `・納期：${args.deliveryDate}` : null,
     args.portfolioPermission ? `・実績公開の可否：${args.portfolioPermission}` : null,
-    args.commercial ? "・商用利用あり" : null,
-    args.rush ? "・早期納品あり" : null,
-    args.notes ? `・詳細：${args.notes}` : null,
+    args.notes ? `・詳細・備考：${args.notes}` : null,
     "",
     "【概算金額】",
-    `合計：${yen(args.total)}`,
-    "",
+    `・合計：${yen(args.total)}`,
     "",
     "※ご相談内容の詳細によりましては、料金が変動することがございます。",
-    "",
-    "",
   ];
 
   return lines.filter((line): line is string => line !== null).join("\n");
@@ -177,6 +198,34 @@ function runTests() {
     rush: false,
   });
   console.assert(estimate.total === 20500, "estimate should include 2 expressions and commercial fee");
+
+  const message = buildMessage({
+    clientName: "テスト",
+    usage: "配信用",
+    range: "waistUp",
+    peopleCount: 1,
+    expressionCount: 2,
+    background: "design",
+    colorPreference: "鮮やかな色がすき",
+    deliveryDate: "5月末",
+    portfolioPermission: "公開可",
+    selectedOptions: {
+      animation: true,
+      decoration: false,
+      characterDesign: false,
+      costumeDesign: false,
+      highRes: true,
+    },
+    commercial: true,
+    rush: false,
+    notes: "かわいい雰囲気",
+    total: 14500,
+  });
+
+  console.assert(message.includes("・アニメーション"), "message should include checked option label as a line");
+  console.assert(message.includes("・高解像度（2000×2000px以上）"), "message should include highRes label as a line");
+  console.assert(message.includes("・商用利用"), "message should include commercial label as a line");
+  console.assert(!message.includes("・早期納品"), "message should not include unchecked rush label");
 }
 
 runTests();
@@ -274,12 +323,28 @@ export default function Tool() {
       colorPreference,
       deliveryDate,
       portfolioPermission,
+      selectedOptions,
       commercial,
       rush,
       notes,
       total: estimate.total,
     });
-  }, [clientName, usage, range, peopleCount, expressionCount, background, colorPreference, portfolioPermission, commercial, rush, notes, estimate.total]);
+  }, [
+    clientName,
+    usage,
+    range,
+    peopleCount,
+    expressionCount,
+    background,
+    colorPreference,
+    deliveryDate,
+    portfolioPermission,
+    selectedOptions,
+    commercial,
+    rush,
+    notes,
+    estimate.total,
+  ]);
 
   const toggleOption = (key: OptionKey, checked: boolean) => {
     setSelectedOptions((prev) => ({ ...prev, [key]: checked }));
